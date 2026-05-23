@@ -1,0 +1,64 @@
+{
+    "camera": {
+        "index": 0,
+        "width": 640,
+        "height": 480,
+        "fps": 30
+    },
+    "tracking": {
+        "model_complexity": 1,
+        "min_detection_confidence": 0.5,
+        "min_tracking_confidence": 0.5,
+        "max_faces": 1
+    },
+    "smoothing": {
+        "kalman_process_noise": 0.0001,
+        "kalman_measurement_noise": 0.01,
+        "ema_alpha": 0.3,
+        "deadzone_radius": 3.0
+    },
+    "calibration": {
+        "num_points": 9,
+        "hold_time_ms": 2000,
+        "screen_margin": 100
+    },
+    "mouse_control": {
+        "sensitivity_x": 1.5,
+        "sensitivity_y": 1.5,
+        "acceleration": 1.2,
+        "smoothing_enabled": true
+    },
+    "click_engine": {
+        "dwell_time_ms": 1000,
+        "dwell_radius": 30.0,
+        "blink_threshold_ear": 0.21,
+        "blink_consecutive_frames": 3
+    },
+    "gestures": {
+        "nod_threshold": 15.0,
+        "shake_threshold": 20.0,
+        "tilt_threshold": 15.0,
+        "cooldown_ms": 1000
+    },
+    "keyboard": {
+        "key_size": 60,
+        "languages": ["en", "ar"],
+        "dwell_highlight_ms": 800
+    },
+    "emergency_panel": {
+        "button_size": 120,
+        "alert_sound_enabled": true,
+        "contacts": []
+    },
+    "evaluation": {
+        "target_sizes": [30, 50, 80, 120],
+        "target_distances": [100, 200, 400, 600],
+        "num_trials": 20,
+        "csv_log_enabled": true
+    },
+    "ui": {
+        "overlay_opacity": 0.85,
+        "theme": "dark",
+        "font_size": 14
+    }
+}

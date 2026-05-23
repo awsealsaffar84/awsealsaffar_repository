@@ -1,0 +1,12 @@
+mediapipe>=0.10.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+pyautogui>=0.9.54
+PyQt5>=5.15.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scipy>=1.10.0
+keyboard>=0.13.5
+pyttsx3>=2.90
+pandas>=2.0.0
+filterpy>=1.4.5
