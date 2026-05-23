@@ -1,5 +1,6 @@
 """Kalman filter and exponential moving average (EMA) smoothing filters."""
 
+import math
 from typing import Tuple, Optional
 
 import numpy as np
@@ -21,40 +22,61 @@ class KalmanFilter2D:
         process_noise: float = 1e-4,
         measurement_noise: float = 1e-2,
     ) -> None:
-        """Initialize the Kalman filter.
-
-        Args:
-            process_noise: Process noise covariance (Q).
-            measurement_noise: Measurement noise covariance (R).
-        """
         self.process_noise = process_noise
         self.measurement_noise = measurement_noise
-        self._state: Optional[np.ndarray] = None
-        self._covariance: Optional[np.ndarray] = None
-        raise NotImplementedError
+
+        self._state: np.ndarray = np.zeros((4, 1))
+        self._covariance: np.ndarray = np.eye(4) * 1000.0
+
+        self._F: np.ndarray = np.array([
+            [1.0, 0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+
+        self._H: np.ndarray = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+        ])
+
+        self._Q: np.ndarray = np.eye(4) * process_noise
+        self._R: np.ndarray = np.eye(2) * measurement_noise
+
+        self._initialized: bool = False
 
     def predict(self) -> Tuple[float, float]:
-        """Predict the next state.
+        if not self._initialized:
+            return (0.0, 0.0)
 
-        Returns:
-            Predicted (x, y) position.
-        """
-        raise NotImplementedError
+        self._state = self._F @ self._state
+        self._covariance = self._F @ self._covariance @ self._F.T + self._Q
+
+        return (float(self._state[0, 0]), float(self._state[1, 0]))
 
     def update(self, measurement: Tuple[float, float]) -> Tuple[float, float]:
-        """Update the filter with a new measurement.
+        if not self._initialized:
+            self._state[0, 0] = measurement[0]
+            self._state[1, 0] = measurement[1]
+            self._initialized = True
+            return measurement
 
-        Args:
-            measurement: Observed (x, y) position.
+        self.predict()
 
-        Returns:
-            Corrected (x, y) position.
-        """
-        raise NotImplementedError
+        z = np.array([[measurement[0]], [measurement[1]]])
+        y = z - self._H @ self._state
+        S = self._H @ self._covariance @ self._H.T + self._R
+        K = self._covariance @ self._H.T @ np.linalg.inv(S)
+
+        self._state = self._state + K @ y
+        self._covariance = (np.eye(4) - K @ self._H) @ self._covariance
+
+        return (float(self._state[0, 0]), float(self._state[1, 0]))
 
     def reset(self) -> None:
-        """Reset the filter state."""
-        raise NotImplementedError
+        self._state = np.zeros((4, 1))
+        self._covariance = np.eye(4) * 1000.0
+        self._initialized = False
 
 
 class EMAFilter:
@@ -65,29 +87,19 @@ class EMAFilter:
     """
 
     def __init__(self, alpha: float = 0.3) -> None:
-        """Initialize the EMA filter.
-
-        Args:
-            alpha: Smoothing factor. Must be in (0, 1].
-        """
         self.alpha = alpha
         self._value: Optional[float] = None
-        raise NotImplementedError
 
     def update(self, new_value: float) -> float:
-        """Update the filter with a new value and return the smoothed result.
+        if self._value is None:
+            self._value = new_value
+            return new_value
 
-        Args:
-            new_value: Raw input value.
-
-        Returns:
-            Smoothed output value.
-        """
-        raise NotImplementedError
+        self._value = self.alpha * new_value + (1.0 - self.alpha) * self._value
+        return self._value
 
     def reset(self) -> None:
-        """Reset the filter to its initial state."""
-        raise NotImplementedError
+        self._value = None
 
 
 class DeadzoneFilter:
@@ -100,36 +112,74 @@ class DeadzoneFilter:
     """
 
     def __init__(self, radius: float = 3.0) -> None:
-        """Initialize the deadzone filter.
-
-        Args:
-            radius: Deadzone radius in pixels.
-        """
         self.radius = radius
         self._last_position: Optional[Tuple[float, float]] = None
-        raise NotImplementedError
 
-    def apply(
-        self, position: Tuple[float, float]
-    ) -> Tuple[float, float]:
-        """Apply the deadzone filter to a position.
+    def apply(self, position: Tuple[float, float]) -> Tuple[float, float]:
+        if self._last_position is None:
+            self._last_position = position
+            return position
 
-        Args:
-            position: Raw (x, y) cursor position.
+        dx = position[0] - self._last_position[0]
+        dy = position[1] - self._last_position[1]
+        distance = math.sqrt(dx * dx + dy * dy)
 
-        Returns:
-            Filtered (x, y) position (unchanged if within deadzone).
-        """
-        raise NotImplementedError
+        if distance < self.radius:
+            return self._last_position
+
+        self._last_position = position
+        return position
 
     def reset(self) -> None:
-        """Reset the filter state."""
-        raise NotImplementedError
+        self._last_position = None
+
+
+class SmoothingPipeline:
+    """Combines Kalman filter, EMA, and deadzone into a single pipeline."""
+
+    def __init__(
+        self,
+        process_noise: float = 1e-4,
+        measurement_noise: float = 1e-2,
+        ema_alpha: float = 0.3,
+        deadzone_radius: float = 3.0,
+    ) -> None:
+        self._kalman = KalmanFilter2D(process_noise, measurement_noise)
+        self._ema_x = EMAFilter(ema_alpha)
+        self._ema_y = EMAFilter(ema_alpha)
+        self._deadzone = DeadzoneFilter(deadzone_radius)
+
+    def smooth(self, x: float, y: float) -> Tuple[float, float]:
+        kx, ky = self._kalman.update((x, y))
+        ex = self._ema_x.update(kx)
+        ey = self._ema_y.update(ky)
+        return self._deadzone.apply((ex, ey))
+
+    def reset(self) -> None:
+        self._kalman.reset()
+        self._ema_x.reset()
+        self._ema_y.reset()
+        self._deadzone.reset()
 
 
 if __name__ == "__main__":
-    print("Smoothing module -- run standalone test")
-    kf = KalmanFilter2D()
-    ema = EMAFilter()
-    dz = DeadzoneFilter()
-    print("All smoothing filters initialized successfully.")
+    np.random.seed(42)
+
+    pipeline = SmoothingPipeline()
+
+    raw_points: list[Tuple[float, float]] = []
+    smoothed_points: list[Tuple[float, float]] = []
+
+    for i in range(50):
+        raw_x = float(i * 10)
+        raw_y = 100.0 + 50.0 * math.sin(i * 0.3) + np.random.normal(0, 5)
+        raw_points.append((raw_x, raw_y))
+        sx, sy = pipeline.smooth(raw_x, raw_y)
+        smoothed_points.append((sx, sy))
+
+    for i in range(10):
+        rx, ry = raw_points[i]
+        sx, sy = smoothed_points[i]
+        print(f"Raw: ({rx:8.2f}, {ry:8.2f})  Smoothed: ({sx:8.2f}, {sy:8.2f})")
+
+    print("Smoothing pipeline test completed.")
