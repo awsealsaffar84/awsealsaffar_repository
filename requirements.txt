@@ -1,4 +1,4 @@
-mediapipe>=0.10.0
+mediapipe>=0.10.9,<0.10.21
 opencv-python>=4.8.0
 numpy>=1.24.0
 pyautogui>=0.9.54
@@ -9,4 +9,3 @@ scipy>=1.10.0
 keyboard>=0.13.5
 pyttsx3>=2.90
 pandas>=2.0.0
-filterpy>=1.4.5
