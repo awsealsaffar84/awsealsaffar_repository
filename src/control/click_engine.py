@@ -1,132 +1,93 @@
 """Click engine supporting dwell-time and blink-based click mechanisms."""
 
+import math
 from typing import Tuple, Optional, Callable
 from enum import Enum
 
 
 class ClickMode(Enum):
-    """Available click detection modes."""
     DWELL = "dwell"
     BLINK = "blink"
     BOTH = "both"
 
 
 class DwellClickDetector:
-    """Detects clicks based on cursor dwell time within a radius.
-
-    If the cursor stays within a small radius for a configured duration,
-    a click is triggered.
-
-    Attributes:
-        dwell_time_ms: Required dwell duration in milliseconds.
-        dwell_radius: Maximum movement radius to maintain dwell (pixels).
-    """
 
     def __init__(
         self,
         dwell_time_ms: int = 1000,
         dwell_radius: float = 30.0,
     ) -> None:
-        """Initialize the dwell click detector.
-
-        Args:
-            dwell_time_ms: Time the cursor must dwell to trigger a click.
-            dwell_radius: Radius within which dwell is counted.
-        """
         self.dwell_time_ms = dwell_time_ms
         self.dwell_radius = dwell_radius
         self._dwell_start_time: Optional[float] = None
         self._dwell_center: Optional[Tuple[float, float]] = None
-        raise NotImplementedError
+        self._progress: float = 0.0
 
     def update(
         self, position: Tuple[float, float], timestamp_ms: float
     ) -> bool:
-        """Update with a new cursor position and check for dwell click.
+        if self._dwell_center is None:
+            self._dwell_center = position
+            self._dwell_start_time = timestamp_ms
+            self._progress = 0.0
+            return False
 
-        Args:
-            position: Current (x, y) cursor position.
-            timestamp_ms: Current timestamp in milliseconds.
+        dx = position[0] - self._dwell_center[0]
+        dy = position[1] - self._dwell_center[1]
+        distance = math.sqrt(dx * dx + dy * dy)
 
-        Returns:
-            True if a dwell click is triggered, False otherwise.
-        """
-        raise NotImplementedError
+        if distance > self.dwell_radius:
+            self._dwell_center = position
+            self._dwell_start_time = timestamp_ms
+            self._progress = 0.0
+            return False
+
+        elapsed = timestamp_ms - self._dwell_start_time
+        self._progress = min(elapsed / self.dwell_time_ms, 1.0)
+
+        if elapsed >= self.dwell_time_ms:
+            self.reset()
+            return True
+
+        return False
 
     def get_progress(self) -> float:
-        """Return the current dwell progress as a fraction in [0, 1].
-
-        Returns:
-            Dwell progress (0.0 = just started, 1.0 = click triggered).
-        """
-        raise NotImplementedError
+        return self._progress
 
     def reset(self) -> None:
-        """Reset the dwell state."""
-        raise NotImplementedError
+        self._dwell_start_time = None
+        self._dwell_center = None
+        self._progress = 0.0
 
 
 class BlinkClickDetector:
-    """Detects intentional blinks using the Eye Aspect Ratio (EAR).
-
-    Attributes:
-        ear_threshold: EAR value below which the eye is considered closed.
-        consecutive_frames: Number of consecutive frames required to
-                           confirm a blink.
-    """
 
     def __init__(
         self,
         ear_threshold: float = 0.21,
         consecutive_frames: int = 3,
     ) -> None:
-        """Initialize the blink click detector.
-
-        Args:
-            ear_threshold: EAR threshold for blink detection.
-            consecutive_frames: Number of frames the eye must stay closed.
-        """
         self.ear_threshold = ear_threshold
         self.consecutive_frames = consecutive_frames
         self._frame_counter: int = 0
-        raise NotImplementedError
-
-    def compute_ear(
-        self, eye_landmarks: "np.ndarray"
-    ) -> float:
-        """Compute the Eye Aspect Ratio for a set of eye landmarks.
-
-        Args:
-            eye_landmarks: Array of 6 eye landmark coordinates.
-
-        Returns:
-            Eye Aspect Ratio value.
-        """
-        raise NotImplementedError
+        self._blink_detected: bool = False
 
     def update(self, ear: float) -> bool:
-        """Update with a new EAR value and check for blink.
-
-        Args:
-            ear: Current Eye Aspect Ratio.
-
-        Returns:
-            True if a blink-click is detected, False otherwise.
-        """
-        raise NotImplementedError
+        if ear < self.ear_threshold:
+            self._frame_counter += 1
+        else:
+            if self._frame_counter >= self.consecutive_frames:
+                self._frame_counter = 0
+                return True
+            self._frame_counter = 0
+        return False
 
     def reset(self) -> None:
-        """Reset the blink detector state."""
-        raise NotImplementedError
+        self._frame_counter = 0
 
 
 class ClickEngine:
-    """Unified click engine combining dwell and blink detection.
-
-    Attributes:
-        mode: Active click detection mode.
-        on_click: Callback invoked when a click is detected.
-    """
 
     def __init__(
         self,
@@ -136,20 +97,15 @@ class ClickEngine:
         ear_threshold: float = 0.21,
         consecutive_frames: int = 3,
     ) -> None:
-        """Initialize the click engine.
-
-        Args:
-            mode: Click detection mode.
-            dwell_time_ms: Dwell time for dwell-based clicks.
-            dwell_radius: Dwell radius for dwell-based clicks.
-            ear_threshold: EAR threshold for blink-based clicks.
-            consecutive_frames: Consecutive frames for blink confirmation.
-        """
         self.mode = mode
         self.on_click: Optional[Callable[[], None]] = None
         self._dwell_detector: Optional[DwellClickDetector] = None
         self._blink_detector: Optional[BlinkClickDetector] = None
-        raise NotImplementedError
+
+        if mode in (ClickMode.DWELL, ClickMode.BOTH):
+            self._dwell_detector = DwellClickDetector(dwell_time_ms, dwell_radius)
+        if mode in (ClickMode.BLINK, ClickMode.BOTH):
+            self._blink_detector = BlinkClickDetector(ear_threshold, consecutive_frames)
 
     def update(
         self,
@@ -157,32 +113,72 @@ class ClickEngine:
         timestamp_ms: float,
         ear: Optional[float] = None,
     ) -> bool:
-        """Process a frame update and detect clicks.
+        clicked = False
 
-        Args:
-            position: Current cursor (x, y) position.
-            timestamp_ms: Current timestamp in milliseconds.
-            ear: Current Eye Aspect Ratio (required if blink mode is active).
+        if self._dwell_detector is not None and self.mode in (ClickMode.DWELL, ClickMode.BOTH):
+            if self._dwell_detector.update(position, timestamp_ms):
+                clicked = True
 
-        Returns:
-            True if a click was detected, False otherwise.
-        """
-        raise NotImplementedError
+        if self._blink_detector is not None and self.mode in (ClickMode.BLINK, ClickMode.BOTH) and ear is not None:
+            if self._blink_detector.update(ear):
+                clicked = True
+
+        if clicked and self.on_click:
+            self.on_click()
+
+        return clicked
+
+    def get_dwell_progress(self) -> float:
+        if self._dwell_detector is not None:
+            return self._dwell_detector.get_progress()
+        return 0.0
 
     def set_mode(self, mode: ClickMode) -> None:
-        """Change the click detection mode.
-
-        Args:
-            mode: New click detection mode.
-        """
-        raise NotImplementedError
+        self.mode = mode
 
     def reset(self) -> None:
-        """Reset all detector states."""
-        raise NotImplementedError
+        if self._dwell_detector is not None:
+            self._dwell_detector.reset()
+        if self._blink_detector is not None:
+            self._blink_detector.reset()
 
 
 if __name__ == "__main__":
-    print("ClickEngine module -- run standalone test")
-    engine = ClickEngine()
-    print("ClickEngine initialized successfully.")
+    import time as _time
+    print("ClickEngine module -- standalone test")
+
+    print("\n--- Dwell Click Test ---")
+    dwell = DwellClickDetector(dwell_time_ms=500, dwell_radius=20.0)
+    base_time = 0.0
+    for i in range(20):
+        t = base_time + i * 50
+        pos = (100.0 + (i % 3), 200.0 + (i % 2))
+        result = dwell.update(pos, t)
+        print(f"  t={t:.0f}ms pos={pos} progress={dwell.get_progress():.2f} click={result}")
+        if result:
+            print("  >>> DWELL CLICK DETECTED!")
+            break
+
+    print("\n--- Blink Click Test ---")
+    blink = BlinkClickDetector(ear_threshold=0.21, consecutive_frames=3)
+    ear_sequence = [0.30, 0.28, 0.15, 0.12, 0.10, 0.25, 0.30]
+    for i, ear in enumerate(ear_sequence):
+        result = blink.update(ear)
+        print(f"  frame={i} ear={ear:.2f} click={result}")
+        if result:
+            print("  >>> BLINK CLICK DETECTED!")
+
+    print("\n--- Unified ClickEngine Test ---")
+    engine = ClickEngine(mode=ClickMode.BOTH, dwell_time_ms=300, dwell_radius=25.0)
+    _click_count = [0]
+    def on_click() -> None:
+        _click_count[0] += 1
+    engine.on_click = on_click
+
+    for i in range(15):
+        t = i * 50
+        result = engine.update((100.0, 200.0), t, ear=0.30)
+        if result:
+            print(f"  Click at t={t}ms!")
+    print(f"  Total clicks: {_click_count[0]}")
+    print("\nClickEngine test completed.")
