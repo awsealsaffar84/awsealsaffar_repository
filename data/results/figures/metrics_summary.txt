@@ -1,0 +1,20 @@
+=======================================================
+  EVALUATION METRICS SUMMARY
+=======================================================
+  RMSE:                    17.23 px
+  Accuracy (±50px):        96.9 %
+  Accuracy (±30px):        90.6 %
+  Mean Movement Time:      529 ms
+  Throughput (Fitts):      0.07 bits/s
+  Jitter (consecutive):    210.58 px
+  Total Trials:            320
+  Target Sizes:            [30, 50, 80, 120]
+  Target Distances:        [100, 200, 400, 600]
+=======================================================
+
+Baseline Comparison:
+  3M-HCI (Quan 2025):      RMSE ~9.8px, Jitter <10px
+  CameraMouseAI:           RMSE ~15.2px, Jitter ~120px
+  Project GameFace:        RMSE ~12.1px, Jitter ~80px
+  Our System:              RMSE 17.2px, Jitter 210.6px
+=======================================================
