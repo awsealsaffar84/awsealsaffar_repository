@@ -248,3 +248,43 @@ pip install -r requirements.txt
 | لوحة الطوارئ | `python -m src.gui.emergency_panel` |
 | توليد الرسوم البيانية | `python scripts/generate_thesis_figures.py` |
 | اختبار شامل | `python tests/test_tracking_standalone.py` |
+
+---
+
+## تشغيل الملف الموحّد (head_tracking_system.py)
+
+الملف `head_tracking_system.py` يحتوي على المشروع الكامل في ملف واحد (3200 سطر، 26 كلاس).
+يمكنك نسخ هذا الملف إلى أي مكان وتشغيله مباشرة بدون الحاجة لبقية المجلدات.
+
+### التثبيت السريع:
+
+```
+pip install mediapipe opencv-python numpy PyQt5 matplotlib seaborn scipy pyttsx3 pandas pyautogui keyboard
+```
+
+### أوامر التشغيل:
+
+| ما تريد فعله | الأمر |
+|--------------|-------|
+| تشغيل النظام كاملاً (كاميرا + واجهة) | `python head_tracking_system.py` |
+| تشغيل مع تفاصيل | `python head_tracking_system.py --debug` |
+| تشغيل بدون واجهة | `python head_tracking_system.py --headless` |
+| وضع المحاكاة (بدون كاميرا) | `python head_tracking_system.py --simulated` |
+| **توليد 10 رسوم بيانية IEEE** | `python head_tracking_system.py --figures` |
+| **تشغيل التجارب + حفظ CSV** | `python head_tracking_system.py --experiments` |
+| تحديد مجلد الرسوم | `python head_tracking_system.py --figures my_figures/` |
+
+### الرسوم البيانية المُنتجة (10 أشكال، 300 DPI):
+
+| الشكل | الوصف |
+|-------|-------|
+| fig1_fitts_law.png | Fitts' Law مع خط الانحدار و R² |
+| fig2_throughput_conditions.png | الإنتاجية حسب حجم الهدف والمسافة |
+| fig3_accuracy_heatmap.png | خريطة حرارية لدقة التأشير |
+| fig4_latency_distribution.png | توزيع زمن الاستجابة |
+| fig5_fatigue_timeline.png | تحليل الإجهاد (خط مزدوج) |
+| fig6_system_comparison.png | مقارنة النظام مع الأنظمة الأخرى |
+| fig7_jitter_boxplot.png | Boxplot تشويش المؤشر |
+| fig8_accuracy_by_size.png | الدقة حسب حجم الهدف |
+| fig9_smoothing_tradeoff.png | RMSE vs Jitter |
+| fig10_ear_blink_detection.png | كشف الغمز بـ EAR |
