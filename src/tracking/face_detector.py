@@ -35,35 +35,60 @@ class FaceDetector:
         self.min_detection_confidence = min_detection_confidence
         self.min_tracking_confidence = min_tracking_confidence
         self.max_num_faces = max_num_faces
-        self._face_mesh: Optional[mp.solutions.face_mesh.FaceMesh] = None
+        self._face_mesh = None
+        self._use_tasks_api = not hasattr(mp, "solutions")
         self.initialize()
 
     def initialize(self) -> None:
-        """Initialize the MediaPipe Face Mesh solution."""
-        self._face_mesh = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=self.max_num_faces,
-            refine_landmarks=True,
-            min_detection_confidence=self.min_detection_confidence,
-            min_tracking_confidence=self.min_tracking_confidence,
+        """Initialize MediaPipe Face Mesh (supports both old and new API)."""
+        if self._use_tasks_api:
+            self._init_tasks_api()
+        else:
+            self._face_mesh = mp.solutions.face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=self.max_num_faces,
+                refine_landmarks=True,
+                min_detection_confidence=self.min_detection_confidence,
+                min_tracking_confidence=self.min_tracking_confidence,
+            )
+
+    def _init_tasks_api(self) -> None:
+        import os
+        import urllib.request
+        import tempfile
+        from mediapipe.tasks.python import BaseOptions
+        from mediapipe.tasks.python.vision import (
+            FaceLandmarker, FaceLandmarkerOptions, RunningMode,
         )
 
+        model_path = os.path.join(tempfile.gettempdir(), "face_landmarker_v2.task")
+        if not os.path.exists(model_path):
+            print("[INFO] Downloading MediaPipe face landmarker model...")
+            url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            urllib.request.urlretrieve(url, model_path)
+            print("[INFO] Model downloaded.")
+
+        options = FaceLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=RunningMode.IMAGE,
+            num_faces=self.max_num_faces,
+            min_face_detection_confidence=self.min_detection_confidence,
+            min_face_presence_confidence=self.min_tracking_confidence,
+            min_tracking_confidence=self.min_tracking_confidence,
+        )
+        self._face_mesh = FaceLandmarker.create_from_options(options)
+
     def detect(self, frame: np.ndarray) -> Optional[List[np.ndarray]]:
-        """Detect facial landmarks in the given frame.
+        """Detect facial landmarks in the given frame."""
+        if self._use_tasks_api:
+            return self._detect_tasks_api(frame)
+        return self._detect_solutions_api(frame)
 
-        Args:
-            frame: BGR image as a NumPy array (H, W, 3).
-
-        Returns:
-            List of landmark arrays, each of shape (478, 3), or None if no
-            face is detected.
-        """
+    def _detect_solutions_api(self, frame: np.ndarray) -> Optional[List[np.ndarray]]:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self._face_mesh.process(rgb_frame)
-
         if not results.multi_face_landmarks:
             return None
-
         faces: List[np.ndarray] = []
         for face_landmarks in results.multi_face_landmarks:
             landmarks = np.array(
@@ -71,7 +96,21 @@ class FaceDetector:
                 dtype=np.float64,
             )
             faces.append(landmarks)
+        return faces
 
+    def _detect_tasks_api(self, frame: np.ndarray) -> Optional[List[np.ndarray]]:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        results = self._face_mesh.detect(mp_image)
+        if not results.face_landmarks:
+            return None
+        faces: List[np.ndarray] = []
+        for face_landmarks in results.face_landmarks:
+            landmarks = np.array(
+                [(lm.x, lm.y, lm.z) for lm in face_landmarks],
+                dtype=np.float64,
+            )
+            faces.append(landmarks)
         return faces
 
     def get_eye_landmarks(
@@ -138,7 +177,10 @@ class FaceDetector:
     def release(self) -> None:
         """Release MediaPipe resources."""
         if self._face_mesh is not None:
-            self._face_mesh.close()
+            try:
+                self._face_mesh.close()
+            except Exception:
+                pass
             self._face_mesh = None
 
 
