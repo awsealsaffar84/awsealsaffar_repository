@@ -5,10 +5,19 @@ import json
 import sys
 import os
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
 import cv2
 import numpy as np
+
+if TYPE_CHECKING:
+    from src.tracking.face_detector import FaceDetector
+    from src.tracking.head_pose_estimator import HeadPoseEstimator
+    from src.tracking.smoothing import SmoothingPipeline
+    from src.tracking.calibration import CalibrationRoutine
+    from src.control.mouse_controller import MouseController
+    from src.control.click_engine import ClickEngine
+    from src.control.gesture_mapper import GestureMapper
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
@@ -55,14 +64,14 @@ class HeadTrackingSystem:
         self.debug = debug
         self.running = False
 
-        self._face_detector = None
-        self._pose_estimator = None
-        self._smoothing_pipeline = None
-        self._calibration = None
-        self._mouse_controller = None
-        self._click_engine = None
-        self._gesture_mapper = None
-        self._camera = None
+        self._face_detector: Optional["FaceDetector"] = None
+        self._pose_estimator: Optional["HeadPoseEstimator"] = None
+        self._smoothing_pipeline: Optional["SmoothingPipeline"] = None
+        self._calibration: Optional["CalibrationRoutine"] = None
+        self._mouse_controller: Optional["MouseController"] = None
+        self._click_engine: Optional["ClickEngine"] = None
+        self._gesture_mapper: Optional["GestureMapper"] = None
+        self._camera: Optional[cv2.VideoCapture] = None
 
         self._frame_count = 0
         self._fps = 0.0
@@ -155,8 +164,9 @@ class HeadTrackingSystem:
             print("[INIT] All modules initialized successfully.")
 
     def _on_click(self) -> None:
-        if self._mouse_controller:
-            self._mouse_controller.click("left")
+        if self._mouse_controller is None:
+            return
+        self._mouse_controller.click("left")
         if self.debug:
             print(f"[CLICK] at {self._mouse_controller.get_position()}")
 
@@ -168,6 +178,14 @@ class HeadTrackingSystem:
             "cursor_x": 0, "cursor_y": 0,
             "ear": 0.0, "click": False,
         }
+
+        assert self._face_detector is not None, "Call initialize() before process_frame()"
+        assert self._pose_estimator is not None
+        assert self._smoothing_pipeline is not None
+        assert self._calibration is not None
+        assert self._mouse_controller is not None
+        assert self._click_engine is not None
+        assert self._gesture_mapper is not None
 
         faces = self._face_detector.detect(frame)
         if faces is None or len(faces) == 0:
@@ -306,6 +324,8 @@ class HeadTrackingSystem:
         app.exec_()
 
     def _toggle_tracking(self, overlay) -> None:
+        if self._mouse_controller is None:
+            return
         if self._mouse_controller.is_enabled():
             self._mouse_controller.disable()
             overlay.set_tracking_status(False)
