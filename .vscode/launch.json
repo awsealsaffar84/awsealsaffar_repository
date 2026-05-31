@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Main App",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Test Windows Bridge",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.apps.windows_bridge",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Test Telegram Launcher",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.apps.telegram_launcher",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Test Head Tracker",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.tracking.head_tracker",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Test Voice Commands",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.voice.voice_commands",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Current Python File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
