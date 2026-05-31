@@ -7,6 +7,27 @@
             "request": "launch",
             "module": "src.main",
             "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Run Main App (Headless)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": ["--headless"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Run Main App (Simulated)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": ["--simulated", "--debug"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
             "justMyCode": true
         },
         {
@@ -14,35 +35,43 @@
             "type": "debugpy",
             "request": "launch",
             "module": "src.apps.windows_bridge",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Test Telegram Launcher",
             "type": "debugpy",
             "request": "launch",
             "module": "src.apps.telegram_launcher",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Test Head Tracker",
             "type": "debugpy",
             "request": "launch",
             "module": "src.tracking.head_tracker",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Test Voice Commands",
             "type": "debugpy",
             "request": "launch",
             "module": "src.voice.voice_commands",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Current Python File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
